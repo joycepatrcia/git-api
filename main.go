@@ -2,7 +2,10 @@ package main
 
 import (
 	"net/http"
+	"regexp"
 	"strconv"
+
+	"go-api/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -10,62 +13,135 @@ import (
 func main() {
 	r := gin.Default()
 
-	// Create new GET route /ping
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})
 	})
 
-	// groping route with /arith
-	arith := r.Group("/arith")
+	magic := r.Group("/magic")
 	{
-		// define GEt route /arith/sum
-		arith.GET("/sum", func(c *gin.Context) {
-			// Query String and parse to int to variable
-			a, _ := strconv.Atoi(c.DefaultQuery("a", "0"))
-			b, _ := strconv.Atoi(c.DefaultQuery("b", "0"))
 
-			// Response the result
+		magic.GET("/sum", func(c *gin.Context) {
+			n, _ := strconv.Atoi(c.DefaultQuery("n", "0"))
 			c.JSON(http.StatusOK, gin.H{
-				"message": sum(a, b),
+				"result": utils.MagicSum(n),
 			})
 		})
 
-		// defined POST route /arith/sub
-		arith.POST("/sub", arithSubHandler)
+		magic.POST("/pow", func(c *gin.Context) {
+			var data struct {
+				n int `json:"n" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&data); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"result": utils.MagicPow(data.n),
+			})
+		})
+
+		magic.GET("/odd", func(c *gin.Context) {
+			n, _ := strconv.Atoi(c.DefaultQuery("n", "0"))
+			c.JSON(http.StatusOK, gin.H{
+				"result": utils.MagicOdd(n),
+			})
+		})
+
+		magic.POST("/grade", func(c *gin.Context) {
+			var data struct {
+				n int `json:"n" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&data); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"result": utils.MagicGrade(data.n),
+			})
+		})
+
+		magic.GET("/name", func(c *gin.Context) {
+			n, _ := strconv.Atoi(c.DefaultQuery("n", "0"))
+			c.JSON(http.StatusOK, gin.H{
+				"result": utils.MagicName(n),
+			})
+		})
+
+		magic.POST("/tria", func(c *gin.Context) {
+			var data struct {
+				n int `json:"n" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&data); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"result": utils.MagicTria(data.n),
+			})
+		})
 	}
 
-	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	account := r.Group("/account")
+	{
+		account.GET("/create", createAccountHandler)
+		account.GET("/read", readAccountHandler)
+		account.GET("/update", updateAccountHandler)
+		account.GET("/delete", deleteAccountHandler)
+		account.GET("/list", listAccountHandler)
+
+		// Replace "yourusername" with your actual username
+		account.GET("/username", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"data": "Hi, my name is joyce"})
+		})
+	}
+
+	r.POST("/auth/login", loginAuthHandler)
+
+	r.Run(":8081")
 }
 
-type arithSubData struct {
-	A int `json:"a" binding:"required"`
-	B int `json:"b" binding:"required"`
+func createAccountHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "Success"})
 }
 
-func arithSubHandler(c *gin.Context) {
-	var data arithSubData
+func readAccountHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{}})
+}
 
-	// Bind the JSON payload to the User struct
-	if err := c.ShouldBindJSON(&data); err != nil {
-		// Return a 400 Bad Request response with the error message
+func updateAccountHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+}
+
+func deleteAccountHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+}
+
+func listAccountHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"data": []interface{}{}})
+}
+
+// Bonus: Authentication handler
+func loginAuthHandler(c *gin.Context) {
+	var loginData struct {
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	// Bind JSON data from the request to loginData struct
+	if err := c.ShouldBindJSON(&loginData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Response the result
-	c.JSON(http.StatusOK, gin.H{
-		"message": sub(data.A, data.B),
-	})
-}
+	// Check if username is alphanumeric and password is numeric
+	isUsernameValid := regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(loginData.Username)
+	isPasswordValid := regexp.MustCompile(`^[0-9]+$`).MatchString(loginData.Password)
 
-// simple arith
-func sum(a int, b int) int {
-	return a + b
-}
-
-// simple arith
-func sub(a int, b int) int {
-	return a - b
+	if isUsernameValid && isPasswordValid {
+		c.JSON(http.StatusOK, gin.H{"message": "Login success"})
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Login failed"})
+	}
 }
